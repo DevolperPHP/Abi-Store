@@ -1,0 +1,16 @@
+<%- include("../layout/navbar") -%>
+    <div class="get-purchases">
+        <button class="add-btn" onclick="window.location.href='/purchase'"><ion-icon class="icon"
+            name="add-outline"></ion-icon></button>
+        <br><br><br>
+        <p class="title">Purchases</p>
+        <div class="files">
+            <% purchases.forEach(data =>{%>
+                <div class="file" onclick="window.location.href='/purchase/get-purchase/<%= data.id%>'">
+                    <p class="file-icon"><ion-icon name="folder"></ion-icon></p>
+                    <p class="name"><%= data.trader + " - " + data.Date%></p>
+                </div>
+            <%}) %>
+        </div>
+    </div>
+    <%- include("../layout/footer") -%>
