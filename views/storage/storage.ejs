@@ -1,0 +1,304 @@
+<%- include('../layout/navbar') -%>
+
+<div class="storage">
+    <p class="title">Storage</p>
+    <div class="labels only-pc">
+        <div class="money-transaction">
+            <p>Sales worth: <%= totalSell.toLocaleString() %> IQD</p> <%# Use toLocaleString for formatting %>
+            <p>Purchase worth: <%= totalBuy.toLocaleString() %> IQD</p>
+        </div>
+        <div class="filters">
+            <!-- Filter/Sort dropdowns remain the same - they trigger full page loads currently -->
+            <select id="mySelect" onchange="redirectToPage(this)">
+                <option selected>Filter</option>
+                <option value="/storage">Main (Newest)</option> <%# Clarify default sort %>
+                <option value="/storage/filter/qty-most">Quantity (Most)</option>
+                <option value="/storage/filter/qty-less">Quantity (Less)</option>
+                <option value="/storage/filter/cost-most">Cost (Most)</option>
+                <option value="/storage/filter/cost-less">Cost (Less)</option>
+            </select>
+
+            <select onchange="redirectToPage(this)">
+                <option selected>Sort by size</option>
+                <option value="/storage">All</option>
+                <% size.forEach(data => {%>
+                    <option value="/storage/size/<%= data.size%>"><%= data.size%></option>
+                <%}) %>
+            </select>
+        </div>
+    </div>
+
+    <div class="labels only-phone">
+        <!-- Mobile view filters - also trigger full page loads -->
+         <center>
+            <p>Sales worth: <%= totalSell.toLocaleString() %> IQD</p>
+            <p>Purchase worth: <%= totalBuy.toLocaleString() %> IQD</p>
+            <div class="filters">
+                 <select id="mySelect" onchange="redirectToPage(this)">
+                     <option selected>Filter</option>
+                     <option value="/storage">Main (Newest)</option>
+                     <option value="/storage/filter/qty-most">Quantity (Most)</option>
+                     <option value="/storage/filter/qty-less">Quantity (Less)</option>
+                     <option value="/storage/filter/cost-most">Cost (Most)</option>
+                     <option value="/storage/filter/cost-less">Cost (Less)</option>
+                 </select>
+
+                 <select onchange="redirectToPage(this)">
+                     <option selected>Sort by size</option>
+                     <option value="/storage">All</option>
+                     <% size.forEach(data => {%>
+                         <option value="/storage/size/<%= data.size%>"><%= data.size%></option>
+                     <%}) %>
+                 </select>
+            </div>
+        </center>
+    </div>
+
+    <!-- Autocomplete remains the same -->
+    <div class="autocomplete" style="width:300px;">
+        <input id="myInput" autocomplete="off" type="text" placeholder="Search for item">
+    </div>
+
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Color</th>
+                <th>Qty</th>
+                <th>Cost</th>
+                <th>Sell price</th>
+                <th>Sales</th>
+            </tr>
+        </thead>
+        <!-- Add an ID to tbody for easy selection in JS -->
+        <tbody id="product-table-body">
+            <%# Loop through ONLY the initial products passed %>
+            <% products.forEach((product, index) => { %>
+                <tr onclick="window.location.href='/items/get/<%= product.id %>'">
+                    <td><%= index + 1 %></td> <%# Initial index %>
+                    <td><%= product.name %> <%if (product.colorName){%>(<%= product.colorName %>)<%}%></td>
+                    <td><%= product.size %></td>
+                    <td><div class="color" style="background-color: <%= product.color || 'transparent' %>"></div></td> <%# Added fallback color %>
+                    <td><%= product.qty %></td>
+                    <td><%= product.price.toLocaleString() %></td> <%# Use toLocaleString %>
+                    <td><%= product.sell_price.toLocaleString() %></td> <%# Use toLocaleString %>
+                    <%
+                        let totalScore = 0;
+                        if(product.score && product.score.length > 0) {
+                            totalScore = product.score.map(x => parseInt(x.num) || 0).reduce((a, b) => a + b, 0);
+                        }
+                    %>
+                    <td><%= totalScore %></td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+    <!-- Optional: Loading indicator -->
+    <div id="loading-indicator" style="display: none; text-align: center; padding: 20px;">Loading more items...</div>
+
+</div>
+
+<!-- Your existing storage.js if any -->
+<script src="/javascript/storage.js"></script>
+
+<!-- Autocomplete script remains the same -->
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+<script>
+    function autocomplete(inp, arr) {
+        // ... your existing autocomplete function ...
+        // No changes needed here for infinite scroll itself
+        let currentFocus;
+        const fuse = new Fuse(arr, { threshold: 0.4 });
+
+        inp.addEventListener("input", function () {
+            let a, b, val = this.value;
+            closeAllLists();
+            if (!val) return false;
+            currentFocus = -1;
+
+            a = document.createElement("DIV");
+            a.setAttribute("id", this.id + "autocomplete-list");
+            a.setAttribute("class", "autocomplete-items");
+            this.parentNode.appendChild(a);
+
+            const results = fuse.search(val);
+            results.forEach(({ item }) => {
+                b = document.createElement("DIV");
+                //Sanitize item before adding to innerHTML if needed
+                const safeItem = String(item).replace(/</g, "<").replace(/>/g, ">");
+                b.innerHTML = `<strong>${safeItem.substr(0, val.length)}</strong>${safeItem.substr(val.length)}`;
+                b.innerHTML += `<input type='hidden' value='${safeItem}'>`; // Ensure value is properly handled
+                b.addEventListener("click", function () {
+                    const searchValue = this.getElementsByTagName("input")[0].value;
+                    // Ensure the search URL is correctly encoded if necessary
+                    window.location.href = `/storage/search/${encodeURIComponent(searchValue)}`;
+                    closeAllLists();
+                });
+                a.appendChild(b);
+            });
+        });
+
+         inp.addEventListener("keydown", function (e) {
+             let x = document.getElementById(this.id + "autocomplete-list");
+             if (x) x = x.getElementsByTagName("div");
+             if (e.keyCode == 40) { // down arrow
+                 currentFocus++;
+                 addActive(x);
+             } else if (e.keyCode == 38) { // up arrow
+                 currentFocus--;
+                 addActive(x);
+             } else if (e.keyCode == 13) { // enter
+                 e.preventDefault();
+                 if (currentFocus > -1 && x) x[currentFocus].click();
+             }
+         });
+
+         function addActive(x) {
+             if (!x) return false;
+             removeActive(x);
+             if (currentFocus >= x.length) currentFocus = 0;
+             if (currentFocus < 0) currentFocus = x.length - 1;
+             x[currentFocus].classList.add("autocomplete-active");
+         }
+
+         function removeActive(x) {
+             for (let i = 0; i < x.length; i++) {
+                 x[i].classList.remove("autocomplete-active");
+             }
+         }
+
+         function closeAllLists(elmnt) {
+            const x = document.getElementsByClassName("autocomplete-items");
+             for (let i = 0; i < x.length; i++) {
+                 if (elmnt != x[i] && elmnt != inp) {
+                     x[i].parentNode.removeChild(x[i]);
+                 }
+             }
+         }
+
+        document.addEventListener("click", function (e) {
+            closeAllLists(e.target);
+        });
+    }
+
+    // Initialize autocomplete
+    // Make sure data passed from backend is correctly parsed into an array
+    let autocompleteData = [];
+    try {
+        // Assuming 'data' is a string like "Item A - L,Item B - M"
+        const rawData = `<%= JSON.stringify(data) %>`; // Get raw string array
+        autocompleteData = JSON.parse(rawData || '[]'); // Parse JSON array
+    } catch (e) {
+        console.error("Error parsing autocomplete data:", e);
+        // Handle case where data might not be a valid JSON array string
+        const rawDataString = "<%= data %>"; // Fallback to comma split if needed
+        if (rawDataString) {
+           autocompleteData = rawDataString.split(",");
+        }
+    }
+    if(Array.isArray(autocompleteData) && autocompleteData.length > 0) {
+        autocomplete(document.getElementById("myInput"), autocompleteData);
+    }
+
+</script>
+
+<!-- !!! Add Infinite Scroll Logic !!! -->
+<script>
+    let page = 1; // Start from page 1 (page 1 already loaded)
+    let loading = false;
+    let hasMoreData = true; // Flag to stop fetching if no more data
+    const initialLimit = <%= initialLimit || 15 %>; // Get limit from backend
+    let currentRowIndex = initialLimit; // Start index after initial load
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const tableBody = document.getElementById('product-table-body'); // Get table body
+
+    const loadMoreProducts = async () => {
+        if (loading || !hasMoreData) return; // Exit if already loading or no more data
+
+        loading = true;
+        page++; // Increment page for the next request
+        if(loadingIndicator) loadingIndicator.style.display = 'block'; // Show loading
+
+        try {
+            const res = await fetch(`/storage/api?page=${page}`);
+            if (!res.ok) {
+                // Handle HTTP errors (like 404, 500)
+                console.error("Failed to fetch products:", res.status, res.statusText);
+                hasMoreData = false; // Stop trying if there's an error
+                return; // Exit function
+            }
+
+            const newProducts = await res.json();
+
+            if (newProducts.length === 0) {
+                hasMoreData = false; // No more products returned
+                 if(loadingIndicator) loadingIndicator.innerText = 'No more items.';
+                // Keep indicator visible or hide after a delay
+                 // setTimeout(() => { if(loadingIndicator) loadingIndicator.style.display = 'none'; }, 2000);
+                return; // Exit function
+            }
+
+            newProducts.forEach(item => {
+                currentRowIndex++; // Increment the overall row index
+                const tr = document.createElement('tr');
+                tr.onclick = () => window.location.href = `/items/get/${item._id}`; // Use _id from API data
+
+                 // Calculate total sales score for the item
+                let itemTotalScore = 0;
+                if (item.score && item.score.length > 0) {
+                    itemTotalScore = item.score.map(x => parseInt(x.num) || 0).reduce((a, b) => a + b, 0);
+                }
+
+                // Use .toLocaleString() for currency formatting
+                const formattedPrice = (item.price || 0).toLocaleString();
+                const formattedSellPrice = (item.sell_price || 0).toLocaleString();
+
+
+                // Populate table row cells
+                tr.innerHTML = `
+                    <td>${currentRowIndex}</td>
+                    <td>${item.name || ''} ${item.colorName ? '(' + item.colorName + ')' : ''}</td>
+                    <td>${item.size || ''}</td>
+                    <td><div class="color" style="background-color: ${item.color || 'transparent'}"></div></td>
+                    <td>${item.qty || 0}</td>
+                    <td>${formattedPrice}</td>
+                    <td>${formattedSellPrice}</td>
+                    <td>${itemTotalScore}</td>
+                `;
+                if(tableBody) tableBody.appendChild(tr); // Append the new row
+            });
+
+        } catch (err) {
+            console.error("Error loading more products:", err);
+            hasMoreData = false; // Assume error means we should stop trying
+             if(loadingIndicator) loadingIndicator.innerText = 'Error loading items.';
+
+        } finally {
+            // Always executes, regardless of success or error
+            loading = false; // Reset loading flag
+             // Hide indicator immediately or keep it if it shows 'No more items' / 'Error'
+             if(hasMoreData && loadingIndicator) loadingIndicator.style.display = 'none';
+        }
+    };
+
+    // --- Scroll Event Listener ---
+    window.addEventListener('scroll', () => {
+        // Standard check for reaching near the bottom
+        const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+        // Trigger slightly before hitting the absolute bottom
+        if (scrollTop + clientHeight >= scrollHeight - 150) {
+            loadMoreProducts(); // Call the function to load more
+        }
+    });
+
+    // Optional: Initial load if content doesn't fill the screen
+     // if (tableBody && tableBody.scrollHeight <= window.innerHeight && hasMoreData) {
+     //    loadMoreProducts();
+     // }
+
+</script>
+
+
+<%- include('../layout/footer') -%>
